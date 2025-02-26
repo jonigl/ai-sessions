@@ -37,3 +37,16 @@ python3 generate.py
 
 python3 generate-stream.py
 ```
+
+# Extra
+
+- We have also tested system role in order to change the assistant behavior and we tried a simple promt engineering to remove markdwon. 
+- We also tested a chat with history and we could check that the context was there.
+
+![alt text](img/chat-example.png)
+
+# Tools 
+
+We have added a call to a public weather API
+
+![alt text](img/tools.png)
