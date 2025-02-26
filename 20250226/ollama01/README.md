@@ -38,12 +38,21 @@ python3 generate.py
 python3 generate-stream.py
 ```
 
-# Extra
+# System role
 
-- We have also tested system role in order to change the assistant behavior and we tried a simple promt engineering to remove markdwon. 
-- We also tested a chat with history and we could check that the context was there.
+We have also tested system role in order to change the assistant behavior and we tried a simple promt engineering to remove markdwon. 
+
 
 ![alt text](img/chat-example.png)
+
+
+# Chat with history and stream
+We also tested a chat with history and we could check that the context was there.
+
+![alt text](img/chat-example.png)
+
+![alt text](img/chat-history-stream.gif)
+
 
 # Tools 
 
