@@ -40,7 +40,7 @@ def subtract_two_numbers(a: int, b: int) -> int:
   """
 
   # The cast is necessary as returned tool call arguments don't always conform exactly to schema
-  return "hello world"
+  return int(a) - int(b)
 
 
 # Tools can still be manually defined and passed into chat
