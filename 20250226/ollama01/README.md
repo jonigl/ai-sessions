@@ -31,5 +31,9 @@ source venv/bin/activate
 
 pip install -r requirements.txt
 
-python3 script.py
+python3 generate.py
+
+// or for streamed answer
+
+python3 generate-stream.py
 ```
