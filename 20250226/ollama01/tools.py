@@ -1,6 +1,6 @@
 from ollama import ChatResponse, chat
 import urllib.request
-
+import urllib.parse
 
 def weather_forecast(location: str) -> str:
   """
@@ -12,7 +12,7 @@ def weather_forecast(location: str) -> str:
   Returns:
     str: The weather forecast
   """
-  contents = urllib.request.urlopen(f'https://wttr.in/{location}?format=%C+%t').read()
+  contents = urllib.request.urlopen(f'https://wttr.in/{urllib.parse.quote_plus(location)}?format=%C+%t').read()
   return contents.decode('utf-8')
   
   
@@ -72,7 +72,7 @@ available_functions = {
 response: ChatResponse = chat(
   'llama3.2:1b',
   messages=messages,
-  tools=[add_two_numbers, subtract_two_numbers_tool, weather_forecast],
+  tools= [add_two_numbers, subtract_two_numbers_tool, weather_forecast],
 )
 
 if response.message.tool_calls:
