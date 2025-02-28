@@ -11,7 +11,7 @@ while True:
     for chunk in chat(
         'llama3.2:1b',
         messages=messages + [
-            {'role': 'system', 'content': 'You are a helpful assistant. You only give a short sentence by answers.'},
+            {'role': 'system', 'content': 'You are a helpful assistant. You only give a short sentence by answer.'},
             {'role': 'user', 'content': user_input},
         ],
         stream=True
