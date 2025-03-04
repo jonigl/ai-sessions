@@ -1,0 +1,6 @@
+langchain
+sentence-transformers
+PyPDF2~=2.0
+chromadb
+transformers
+torch
