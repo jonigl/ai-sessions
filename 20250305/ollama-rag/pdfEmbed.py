@@ -7,9 +7,12 @@ import ollama
 import pytesseract
 from pdf2image import convert_from_path
 
+from langchain.document_loaders import PyPDFLoader
+from langchain.text_splitter import CharacterTextSplitter
+
 # Configuración de ChromaDB
 chroma_client = chromadb.Client()
-collection = chroma_client.create_collection(name="pdf_collection")
+collection = chroma_client.create_collection(name="pdf_collection2")
 
 
 ollama_client = ollama.Client
@@ -82,14 +85,18 @@ for filename in os.listdir(pdf_directory):
     if filename.endswith(".pdf"):
         pdf_path = os.path.join(pdf_directory, filename)
         text = extract_text_from_pdf_tesseract(pdf_path)
-        embedding = generate_embedding_ollama(text)
-        
-        # Guardar el embedding en ChromaDB
-        collection.add(
-            documents=[text],
-            embeddings=[embedding],
-            ids=[filename]
-        )
+
+        text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=30, separator="\n")
+        #docs = text_splitter.split_documents(documents=[text])
+        docs = text_splitter.split_text(text=text)
+        for doc in docs:
+            embedding = generate_embedding_ollama(doc)        
+            # Guardar el embedding en ChromaDB
+            collection.add(
+                documents=[doc],
+                embeddings=[embedding],
+                ids=[filename]
+            )
 
 print("Proceso completado. Los embeddings han sido guardados en ChromaDB.")
 
@@ -120,7 +127,7 @@ def queryOllama():
     } ,
     ]
 
-    for part in chat('llama3.2:1b', messages=messages, stream=True):
+    for part in chat('llama3.1:8b', messages=messages, stream=True):
         print(part['message']['content'], end='', flush=True)
 
 def  query_chromadb ( query_text, n_results= 1 ): 
@@ -145,23 +152,25 @@ def  query_chromadb ( query_text, n_results= 1 ):
 
 def queryOllamaEmbedded():
     
-    queries = ["What amount of students have assisted to the exam?", 
-    "Cuál es la nota que obtuvieron los distintos alumnos en el examen?",
-    "Cuál es el promedio de nota obtenida por alumnos en el examen?",
-                "What amount of students have approved the exam?",
+    queries = [#"What amount of students have assisted to the exam ?", 
+              #  "What amount of students have approved the exam?",
                 "What are the benefits of representing a general tree structure as a binary tree?",
-                "Cómo puedo hacer para representar un árbol r-ario como un árbol binario, según Knuth?"]
+                "How can I represent a general tree as a binary tree, as Knuth indicates?",
+                "What are the basic differences between trees and binary trees? ",
+                "What is the natural correspondance between forests and binary trees?"
+               ]
  
     for query_text in queries:
     
         retrieved_docs, metadata = query_chromadb(query_text) 
-        context = " " .join(retrieved_docs[ 0 ]) if retrieved_docs else  "No se encontraron documentos relevantes"
+        context = " " .join(retrieved_docs[0]) if retrieved_docs else  "No relevant docs"
 
         # Paso 2:
         # Envía la consulta junto con el contexto a Ollama     
-        augmented_prompt = f"Contex:{context} \n\nQuery: {query_text} \nRespuesta:" 
+        augmented_prompt = f"Using this data: {context}. Respond to this prompt: {query_text}"
+        #augmented_prompt = f"Context:{context} \n\nQuery: {query_text}" 
         print ( "######## Augmented Prompt ########" )
-        print (f"Context:  {augmented_prompt[:100]}\nQuery: {query_text}")
+        print (f"Context:  {augmented_prompt}\nQuery: {query_text}")
 
 
         messages = [
@@ -171,7 +180,7 @@ def queryOllamaEmbedded():
         } ,
         ]
 
-        for part in ollama.chat('llama3.2:1b', messages=messages, stream=True):
+        for part in ollama.chat('llama3.1:8b', messages=messages, stream=True):
             print(part['message']['content'], end='', flush=True)
 
         print ( "\n##################################\n" )
