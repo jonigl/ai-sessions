@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "ollama": "^0.5.14",
+    "zod-to-json-schema": "^3.24.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.9"
+  }
+}

@@ -1,4 +1,4 @@
-# Ollama 01 example
+# Ollama python examples
 
 ## Requirements
 
