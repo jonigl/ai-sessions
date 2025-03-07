@@ -1,3 +1,6 @@
 venv
+<<<<<<< HEAD
 node_modules/
+=======
+>>>>>>> origin/rag
 **/node_modules/

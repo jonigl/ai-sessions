@@ -1,2 +1,5 @@
 ollama
+<<<<<<< HEAD
 pydantic
+=======
+>>>>>>> origin/rag
