@@ -214,7 +214,8 @@ def chat(embedding_model, llm_model, k):
     # It's crucial for guiding the LLM to use the retrieved information
     template = """
     Answer the question based only on the following context. If you don't know the answer or 
-    the information is not provided in the context, just say so - don't make up an answer.
+    the information is not provided in the context, just say so - don't make up an answer. 
+    Use the same language as the user question.
     
     Context:
     {context}
