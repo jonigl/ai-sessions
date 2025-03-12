@@ -24,6 +24,7 @@ from langchain_ollama import OllamaLLM
 from langchain_chroma import Chroma
 from prompt_toolkit import prompt
 from langchain_unstructured import UnstructuredLoader
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler  # For streaming responses
 
 # Custom AsciiDoc loader using UnstructuredFileLoader
 class AsciiDocLoader(UnstructuredLoader):
@@ -191,7 +192,8 @@ def embed(directory, clear, chunk_size, chunk_overlap, embedding_model):
 @click.option('--embedding-model', default=EMBEDDING_MODEL, help='Ollama embedding model to use')
 @click.option('--llm-model', default=LLM_MODEL, help='Ollama LLM model to use')
 @click.option('--k', default=4, help='Number of documents to retrieve')
-def chat(embedding_model, llm_model, k):
+@click.option('--stream/--no-stream', default=True, help='Stream responses from the LLM')
+def chat(embedding_model, llm_model, k, stream):
     """
     Chat with your documents using a RAG-enabled LLM.
     
@@ -222,8 +224,6 @@ def chat(embedding_model, llm_model, k):
     )
     
     # Step 2: Set up the retriever
-    # The retriever is responsible for finding the most relevant document chunks
-    # based on the similarity between the query embedding and document embeddings
     retriever = vectorstore.as_retriever(
         search_type="similarity",  # Use similarity search (cosine similarity)
         search_kwargs={"k": k}  # Return the k most similar chunks
@@ -232,7 +232,17 @@ def chat(embedding_model, llm_model, k):
     # Step 3: Set up the Language Model
     # This is the model that will generate responses based on the retrieved context
     print(f"Loading LLM {llm_model}...")
-    llm = OllamaLLM(model=llm_model)
+    
+    # Configure streaming callbacks if streaming is enabled
+    callbacks = []
+    if stream:
+        callbacks.append(StreamingStdOutCallbackHandler())
+    
+    llm = OllamaLLM(
+        model=llm_model,
+        callbacks=callbacks if stream else None,
+        streaming=stream
+    )
     
     # Step 4: Create a RAG prompt template
     # This template formats the context and question for the LLM
@@ -279,21 +289,28 @@ def chat(embedding_model, llm_model, k):
                 
             # Process the query through our RAG pipeline
             print("\nThinking...")
+            
             # The RAG process happens here:
             # 1. Query is embedded
             # 2. Similar documents are retrieved
             # 3. LLM generates a response using the documents
-            result = qa_chain.invoke({"query": user_input})
-            
-            # Display the result
-            print(f"\nAssistant: {result['result']}")
+            if stream:
+                print("\nAssistant: ", end="", flush=True)
+                result = qa_chain.invoke({"query": user_input})
+                # When streaming, the output is already printed by the callback
+                print("\n")  # Add newline after response
+            else:
+                # Non-streaming mode - process normally and display the result
+                result = qa_chain.invoke({"query": user_input})
+                # Display the result
+                print(f"\nAssistant: {result['result']}")
             
         except KeyboardInterrupt:
-            # Handle Ctrl+C
+            # Handle Ctrl+C gracefully
             print("\nGoodbye!")
             break
         except Exception as e:
-            # Handle errors
+             # Handle errors
             print(f"Error: {e}")
 
 if __name__ == "__main__":
