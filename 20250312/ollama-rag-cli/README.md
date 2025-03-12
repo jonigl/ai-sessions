@@ -47,7 +47,7 @@ Retrieval-Augmented Generation combines document retrieval with language model g
 
 2. Install the required dependencies:
    ```bash
-   pip install langchain langchain-community chromadb click pydantic unstructured docx2txt pypdf
+   pip install langchain-community chromadb click pydantic unstructured pypdf
    ```
 
 3. Install Ollama models:

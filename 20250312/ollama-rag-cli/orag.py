@@ -4,23 +4,25 @@ import click  # CLI framework for Python
 import shutil
 from typing import List, Optional
 from pathlib import Path
-import chromadb  # Vector database for storing embeddings
+# import Chroma  # Vector database for storing embeddings
 
 # LangChain imports for document handling and RAG system components
 from langchain.text_splitter import RecursiveCharacterTextSplitter  # For chunking documents
 from langchain_community.document_loaders import (
-    DirectoryLoader,  # Loads documents from a directory
     TextLoader,       # Loads text files
     PyPDFLoader,      # Loads PDF files
     CSVLoader,        # Loads CSV files
     Docx2txtLoader,   # Loads Word documents
     UnstructuredMarkdownLoader  # Loads Markdown files
 )
-from langchain_community.embeddings import OllamaEmbeddings  # Interface to Ollama embedding models
+#from langchain_community.embeddings import OllamaEmbeddings  # Interface to Ollama embedding models # DEPRECATED
 from langchain_community.llms import Ollama  # Interface to Ollama language models
-from langchain_community.vectorstores import Chroma  # ChromaDB integration for LangChain
+# from langchain_community.vectorstores import Chroma  # ChromaDB integration for LangChain # DEPRECATED
 from langchain.chains import RetrievalQA  # RAG implementation in LangChain
 from langchain.prompts import PromptTemplate  # For creating custom prompts
+from langchain_ollama import OllamaEmbeddings
+from langchain_ollama import OllamaLLM
+from langchain_chroma import Chroma
 
 # Configuration variables - these can be modified as needed
 CHROMA_DB_DIR = os.path.expanduser("~/ragdb")  # Where embeddings will be stored
@@ -157,7 +159,7 @@ def embed(directory, clear, chunk_size, chunk_overlap, embedding_model):
         persist_directory=CHROMA_DB_DIR  # Where to save the database
     )
     # Make sure to save the database to disk
-    vectorstore.persist()
+    # vectorstore.persist() # This is done automatically by ChromaDB
     
     print(f"Successfully embedded {len(chunks)} document chunks into the database.")
 
@@ -205,7 +207,7 @@ def chat(embedding_model, llm_model, k):
     # Step 3: Set up the Language Model
     # This is the model that will generate responses based on the retrieved context
     print(f"Loading LLM {llm_model}...")
-    llm = Ollama(model=llm_model)
+    llm = OllamaLLM(model=llm_model)
     
     # Step 4: Create a RAG prompt template
     # This template formats the context and question for the LLM
