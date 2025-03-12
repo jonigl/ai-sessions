@@ -36,6 +36,9 @@ Retrieval-Augmented Generation combines document retrieval with language model g
 - Python 3.8+
 - [Ollama](https://ollama.ai/) installed and running
 - Sufficient disk space for document storage and embeddings
+- libmagic (for file type detection):
+  - macOS: `brew install libmagic` used by `langchain_unstructured`
+  - Ubuntu: `sudo apt-get install libmagic1`
 
 ### Setup
 
@@ -47,7 +50,7 @@ Retrieval-Augmented Generation combines document retrieval with language model g
 
 2. Install the required dependencies:
    ```bash
-   pip install langchain-community chromadb click pydantic unstructured pypdf
+   pip install -r requirements.txt
    ```
 
 3. Install Ollama models:

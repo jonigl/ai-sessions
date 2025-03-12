@@ -4,7 +4,7 @@ import click  # CLI framework for Python
 import shutil
 from typing import List, Optional
 from pathlib import Path
-# import Chroma  # Vector database for storing embeddings
+from chromadb.config import Settings # ChromaDB settings for disabling telemetry
 
 # LangChain imports for document handling and RAG system components
 from langchain.text_splitter import RecursiveCharacterTextSplitter  # For chunking documents
@@ -13,17 +13,23 @@ from langchain_community.document_loaders import (
     PyPDFLoader,      # Loads PDF files
     CSVLoader,        # Loads CSV files
     Docx2txtLoader,   # Loads Word documents
-    UnstructuredMarkdownLoader  # Loads Markdown files
+    UnstructuredMarkdownLoader,  # Loads Markdown files
 )
-#from langchain_community.embeddings import OllamaEmbeddings  # Interface to Ollama embedding models # DEPRECATED
+from langchain_community.vectorstores.utils import filter_complex_metadata  # To filter out complex metadata
 from langchain_community.llms import Ollama  # Interface to Ollama language models
-# from langchain_community.vectorstores import Chroma  # ChromaDB integration for LangChain # DEPRECATED
 from langchain.chains import RetrievalQA  # RAG implementation in LangChain
 from langchain.prompts import PromptTemplate  # For creating custom prompts
 from langchain_ollama import OllamaEmbeddings
 from langchain_ollama import OllamaLLM
 from langchain_chroma import Chroma
 from prompt_toolkit import prompt
+from langchain_unstructured import UnstructuredLoader
+
+# Custom AsciiDoc loader using UnstructuredFileLoader
+class AsciiDocLoader(UnstructuredLoader):
+    """Load AsciiDoc files using Unstructured."""
+    def __init__(self, file_path: str):
+        super().__init__(file_path, mode="single")
 
 # Configuration variables - these can be modified as needed
 CHROMA_DB_DIR = os.path.expanduser("~/ragdb")  # Where embeddings will be stored
@@ -40,6 +46,7 @@ LOADER_MAPPING = {
     ".csv": CSVLoader,          # CSV data files
     ".docx": Docx2txtLoader,    # Word documents
     ".md": UnstructuredMarkdownLoader,  # Markdown files
+    ".adoc": AsciiDocLoader,  # AsciiDoc files
 }
 
 def get_loader_for_file(file_path: str):
@@ -147,6 +154,21 @@ def embed(directory, clear, chunk_size, chunk_overlap, embedding_model):
     chunks = text_splitter.split_documents(documents)
     print(f"Created {len(chunks)} chunks.")
     
+    # Filter complex metadata to prevent ChromaDB errors (those error happened when using adoc files)
+    print("Filtering complex metadata...")
+    for chunk in chunks:
+        # Process each metadata field manually
+        filtered_metadata = {}
+        for key, value in chunk.metadata.items():
+            # Only keep simple data types
+            if isinstance(value, (str, int, float, bool)):
+                filtered_metadata[key] = value
+            elif isinstance(value, list) and len(value) > 0:
+                # Convert lists to string if possible
+                filtered_metadata[key] = str(value)
+        # Replace with filtered metadata
+        chunk.metadata = filtered_metadata
+    
     # Step 3: Create embeddings for each chunk
     # Embeddings are vector representations of text that capture semantic meaning
     print(f"Creating embeddings using {embedding_model}...")
@@ -157,7 +179,8 @@ def embed(directory, clear, chunk_size, chunk_overlap, embedding_model):
     vectorstore = Chroma.from_documents(
         documents=chunks,  # Our document chunks
         embedding=embeddings,  # The embedding function
-        persist_directory=CHROMA_DB_DIR  # Where to save the database
+        persist_directory=CHROMA_DB_DIR,  # Where to save the database
+        client_settings=Settings(anonymized_telemetry=False)  # Disable telemetry
     )
     # Make sure to save the database to disk
     # vectorstore.persist() # This is done automatically by ChromaDB
@@ -193,8 +216,9 @@ def chat(embedding_model, llm_model, k):
     # Load the existing vector database from disk
     print("Loading vector database...")
     vectorstore = Chroma(
-        persist_directory=CHROMA_DB_DIR,
-        embedding_function=embeddings  # This is used to embed the queries
+        persist_directory=CHROMA_DB_DIR, # Where the database is stored
+        embedding_function=embeddings,  # This is used to embed the queries
+        client_settings=Settings(anonymized_telemetry=False)  # Disable telemetry
     )
     
     # Step 2: Set up the retriever
