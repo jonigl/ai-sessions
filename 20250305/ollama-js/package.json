@@ -4,10 +4,6 @@
     "zod-to-json-schema": "^3.24.3"
   },
   "devDependencies": {
-<<<<<<< HEAD
     "@types/node": "^22.13.9"
-=======
-    "@types/node": "^22.13.8"
->>>>>>> origin/rag
   }
 }
