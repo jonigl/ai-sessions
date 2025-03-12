@@ -23,6 +23,7 @@ from langchain.prompts import PromptTemplate  # For creating custom prompts
 from langchain_ollama import OllamaEmbeddings
 from langchain_ollama import OllamaLLM
 from langchain_chroma import Chroma
+from prompt_toolkit import prompt
 
 # Configuration variables - these can be modified as needed
 CHROMA_DB_DIR = os.path.expanduser("~/ragdb")  # Where embeddings will be stored
@@ -224,7 +225,7 @@ def chat(embedding_model, llm_model, k):
     
     Answer:
     """
-    prompt = PromptTemplate.from_template(template)
+    promptTemplate = PromptTemplate.from_template(template)
     
     # Step 5: Set up the RAG chain
     # This connects the retriever and LLM together into a QA system
@@ -232,7 +233,7 @@ def chat(embedding_model, llm_model, k):
         llm=llm,  # The language model
         chain_type="stuff",  # "stuff" means we stuff all context into one prompt
         retriever=retriever,  # The retriever that finds relevant documents
-        chain_type_kwargs={"prompt": prompt}  # Pass our custom prompt
+        chain_type_kwargs={"prompt": promptTemplate}  # Pass our custom prompt
     )
     
     print(f"\nRAG Chat initialized with {llm_model}! Type 'exit' to quit.\n")
@@ -240,8 +241,8 @@ def chat(embedding_model, llm_model, k):
     # Step 6: Start the interactive chat loop
     while True:
         try:
-            # Get user input
-            user_input = input("\nYou: ")
+            # Use prompt_toolkit if available for enhanced input experience            
+            user_input = prompt("\nYou: ")            
             
             # Check for exit commands
             if user_input.lower() in ["exit", "quit", "q"]:
