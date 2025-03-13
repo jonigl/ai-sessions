@@ -35,7 +35,7 @@ class AsciiDocLoader(UnstructuredLoader):
 # Configuration variables - these can be modified as needed
 CHROMA_DB_DIR = os.path.expanduser("~/ragdb")  # Where embeddings will be stored
 EMBEDDING_MODEL = "nomic-embed-text"  # Default embedding model - good balance of quality and efficiency
-LLM_MODEL = "llama3:8b"  # Default LLM - good performance on M2 Mac with 16GB RAM
+LLM_MODEL = "llama3.2:1b"  # Default LLM - good performance on M2 Mac with 16GB RAM
 CHUNK_SIZE = 1000  # Size of document chunks in characters
 CHUNK_OVERLAP = 200  # Overlap between chunks to maintain context
 
