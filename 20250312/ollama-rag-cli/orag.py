@@ -299,7 +299,7 @@ def chat(embedding_model, llm_model, k, stream, keep_history, history_size):
                     history_context += f"Previous answer {i+1}: {a}\n\n"
                 
                 # Append history to the current query to create continuity
-                current_query = f"{history_context}Based on the above conversation, please answer: {user_input}"
+                current_query = f"{history_context} Based on the above conversation, please answer: {user_input}"
             
             # Execute the RAG query with our possibly enhanced query
             if stream:
