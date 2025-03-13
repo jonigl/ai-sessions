@@ -193,47 +193,44 @@ def embed(directory, clear, chunk_size, chunk_overlap, embedding_model):
 @click.option('--llm-model', default=LLM_MODEL, help='Ollama LLM model to use')
 @click.option('--k', default=4, help='Number of documents to retrieve')
 @click.option('--stream/--no-stream', default=True, help='Stream responses from the LLM')
-def chat(embedding_model, llm_model, k, stream):
+@click.option('--keep-history/--no-history', default=True, help='Maintain conversation history')
+@click.option('--history-size', default=3, help='Number of previous exchanges to include in context')
+def chat(embedding_model, llm_model, k, stream, keep_history, history_size):
     """
-    Chat with your documents using a RAG-enabled LLM.
+    Chat with your documents using a RAG-enabled LLM with conversation history.
     
     This command will:
     1. Load the vector database with your embedded documents
     2. Set up a retrieval system to find relevant document chunks
     3. Connect to an Ollama LLM
     4. Start an interactive chat loop where your questions are answered
-       using information from your documents
+       using information from your documents and previous conversation context
     """
     # Check if the database exists - we need embedded documents to chat with
     if not os.path.exists(CHROMA_DB_DIR):
         print(f"No database found at {CHROMA_DB_DIR}. Please run 'embed' command first.")
         return
     
-    # Step 1: Set up embeddings and vector store
-    # We need the same embedding model that was used to create the embeddings
-    # to ensure the query vectors are in the same space as the document vectors
+    # Step 1: Set up embeddings and vector store - same as before
     print(f"Loading embeddings with {embedding_model}...")
     embeddings = OllamaEmbeddings(model=embedding_model)
     
-    # Load the existing vector database from disk
     print("Loading vector database...")
     vectorstore = Chroma(
-        persist_directory=CHROMA_DB_DIR, # Where the database is stored
-        embedding_function=embeddings,  # This is used to embed the queries
-        client_settings=Settings(anonymized_telemetry=False)  # Disable telemetry
+        persist_directory=CHROMA_DB_DIR, 
+        embedding_function=embeddings,
+        client_settings=Settings(anonymized_telemetry=False)
     )
     
-    # Step 2: Set up the retriever
+    # Step 2: Set up the retriever - same as before
     retriever = vectorstore.as_retriever(
-        search_type="similarity",  # Use similarity search (cosine similarity)
-        search_kwargs={"k": k}  # Return the k most similar chunks
+        search_type="similarity",
+        search_kwargs={"k": k}
     )
     
-    # Step 3: Set up the Language Model
-    # This is the model that will generate responses based on the retrieved context
+    # Step 3: Set up the Language Model - same as before
     print(f"Loading LLM {llm_model}...")
     
-    # Configure streaming callbacks if streaming is enabled
     callbacks = []
     if stream:
         callbacks.append(StreamingStdOutCallbackHandler())
@@ -244,9 +241,8 @@ def chat(embedding_model, llm_model, k, stream):
         streaming=stream
     )
     
-    # Step 4: Create a RAG prompt template
-    # This template formats the context and question for the LLM
-    # It's crucial for guiding the LLM to use the retrieved information
+    # Step 4: Create the RAG prompt template - we keep this simple
+    # This template focuses on the current question and context
     template = """
     Answer the question based only on the following context. If you don't know the answer or 
     the information is not provided in the context, just say so - don't make up an answer. 
@@ -261,21 +257,23 @@ def chat(embedding_model, llm_model, k, stream):
     """
     promptTemplate = PromptTemplate.from_template(template)
     
-    # Step 5: Set up the RAG chain
-    # This connects the retriever and LLM together into a QA system
+    # Step 5: Set up the RAG chain - same as before
     qa_chain = RetrievalQA.from_chain_type(
-        llm=llm,  # The language model
-        chain_type="stuff",  # "stuff" means we stuff all context into one prompt
-        retriever=retriever,  # The retriever that finds relevant documents
-        chain_type_kwargs={"prompt": promptTemplate}  # Pass our custom prompt
+        llm=llm,
+        chain_type="stuff",
+        retriever=retriever,
+        chain_type_kwargs={"prompt": promptTemplate}
     )
     
     print(f"\nRAG Chat initialized with {llm_model}! Type 'exit' to quit.\n")
     
-    # Step 6: Start the interactive chat loop
+    # Initialize conversation history list
+    # This will store tuples of (question, answer) for context
+    history = []
+    
+    # Step 6: Start the interactive chat loop with history tracking
     while True:
         try:
-            # Use prompt_toolkit if available for enhanced input experience            
             user_input = prompt("\nYou: ")            
             
             # Check for exit commands
@@ -290,28 +288,45 @@ def chat(embedding_model, llm_model, k, stream):
             # Process the query through our RAG pipeline
             print("\nThinking...")
             
-            # The RAG process happens here:
-            # 1. Query is embedded
-            # 2. Similar documents are retrieved
-            # 3. LLM generates a response using the documents
+            # Prepare the current query - this is where we add history context
+            current_query = user_input
+            if keep_history and history:
+                # Enhance the query with previous conversation context
+                # This helps the LLM understand the current question in light of previous exchanges
+                history_context = ""
+                for i, (q, a) in enumerate(history[-history_size:]):
+                    history_context += f"Previous question {i+1}: {q}\n"
+                    history_context += f"Previous answer {i+1}: {a}\n\n"
+                
+                # Append history to the current query to create continuity
+                current_query = f"{history_context}Based on the above conversation, please answer: {user_input}"
+            
+            # Execute the RAG query with our possibly enhanced query
             if stream:
                 print("\nAssistant: ", end="", flush=True)
-                result = qa_chain.invoke({"query": user_input})
-                # When streaming, the output is already printed by the callback
+                result = qa_chain.invoke({"query": current_query})
+                assistant_response = result['result']
                 print("\n")  # Add newline after response
             else:
-                # Non-streaming mode - process normally and display the result
-                result = qa_chain.invoke({"query": user_input})
-                # Display the result
-                print(f"\nAssistant: {result['result']}")
+                result = qa_chain.invoke({"query": current_query})
+                assistant_response = result['result']
+                print(f"\nAssistant: {assistant_response}")
+            
+            # Store this exchange in our conversation history
+            if keep_history:
+                history.append((user_input, assistant_response))
+                # Limit history size to prevent context bloat
+                # This is important for both token limits and relevance
+                if len(history) > history_size * 2:  # Keep double the displayed history for potential future uses
+                    history = history[-(history_size * 2):]
             
         except KeyboardInterrupt:
-            # Handle Ctrl+C gracefully
             print("\nGoodbye!")
             break
         except Exception as e:
-             # Handle errors
             print(f"Error: {e}")
+            import traceback
+            traceback.print_exc()  # Detailed error for debugging
 
 if __name__ == "__main__":
     cli()
