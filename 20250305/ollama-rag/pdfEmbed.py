@@ -1,18 +1,20 @@
 import os
-import PyPDF2
+
 import chromadb
 from chromadb.utils import embedding_functions
-from transformers import AutoTokenizer, AutoModel
+#from transformers import AutoTokenizer, AutoModel
 import ollama
-import pytesseract
-from pdf2image import convert_from_path
 
-from langchain.document_loaders import PyPDFLoader
+from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import CharacterTextSplitter
 
+from pdfFunctions import extract_text_from_pdf_tesseract, extract_text_from_pdf_pypdf
+from embedFunctions import generate_embedding, generate_embedding_ollama, generate_embedding_splitting
+#from embedFiles import embedDoc
+
 # Configuración de ChromaDB
-chroma_client = chromadb.Client()
-collection = chroma_client.create_collection(name="pdf_collection2")
+chroma_client = chromadb.PersistentClient(path=".chroma")
+collection = chroma_client.get_or_create_collection(name="pdf_collection2")
 
 
 ollama_client = ollama.Client
@@ -23,60 +25,12 @@ pdf_text_directory = "./pdf_text"
 
 
 
-
-
-# Función para extraer texto de un archivo PDF
-def extract_text_from_pdf_tesseract(pdf_path):
-    print(f'Processing {pdf_path}')
-
-    text = convertTesseract(pdf_path)
-    return text 
-
-
-
-def extract_text_from_pdf_pypdf(pdf_path):
-    print(f'Processing {pdf_path}')
-    text=""
-    with open(pdf_path, "rb") as file:
-      reader = PyPDF2.PdfFileReader(file)
-      for page_num in range(reader.numPages):
-          page = reader.getPage(page_num)
-          text += page.extract_text()
-    return text
-    
-
-def convertTesseract(path):
-  # convert to image using resolution 600 dpi 
-  pages = convert_from_path(path, 600)
-
-  # extract text
-  text_data = ''
-  for page in pages:
-    text = pytesseract.image_to_string(page)
-    text_data += text + '\n'
-  #print(text_data)
-  return text_data
-
-# Función para generar embeddings usando OpenLLaMA local
-def generate_embedding(text):
-
-    tokenizer = AutoTokenizer.from_pretrained("openlm-research/open_llama_3.2_1b")
-    model = AutoModel.from_pretrained("openlm-research/open_llama_3.2_1b")
-    
-    inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True)
-    outputs = model(**inputs)
-    
-    # Usamos el último estado oculto como embedding
-    embedding = outputs.last_hidden_state.mean(dim=1).detach().numpy()
-    return embedding
-
-
-
-def generate_embedding_ollama(text):
-    #tokens = ollama_client.tokenize(text)
-    resp = ollama.embed(model='all-minilm', input=text)
-    return resp["embeddings"][0]
-
+#for filename in os.listdir(pdf_directory):
+#    if filename.endswith(".pdf"):
+#        pdf_path = os.path.join(pdf_directory, filename)
+#        text = extract_text_from_pdf_tesseract(pdf_path)
+        ## Tesseract tiene buena transformación de archivos pdf de imagen
+#        embedDoc(text, False, 100, 10, "llama3.2:1b", collection)
 
 
 # Procesar cada archivo PDF en el directorio
@@ -85,12 +39,19 @@ for filename in os.listdir(pdf_directory):
     if filename.endswith(".pdf"):
         pdf_path = os.path.join(pdf_directory, filename)
         text = extract_text_from_pdf_tesseract(pdf_path)
+        ## Tesseract tiene buena transformación de archivos pdf de imagen
 
         text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=30, separator="\n")
         #docs = text_splitter.split_documents(documents=[text])
         docs = text_splitter.split_text(text=text)
         for doc in docs:
-            embedding = generate_embedding_ollama(doc)        
+            #embedding = generate_embedding_ollama(doc)
+            docDictionary = {}
+            docDictionary["metadata"] = { 'source': pdf_path }
+            docDictionary["page_content"] = doc
+            embedding = generate_embedding_splitting(
+                docDictionary
+            )        
             # Guardar el embedding en ChromaDB
             collection.add(
                 documents=[doc],
@@ -105,12 +66,20 @@ for filename in os.listdir(pdf_text_directory):
     if filename.endswith(".pdf"):
         pdf_path = os.path.join(pdf_text_directory, filename)
         text = extract_text_from_pdf_pypdf(pdf_path)
-        embedding = generate_embedding_ollama(text)
+        #embedding = generate_embedding_ollama(text)
         
+        chunks, embedding = generate_embedding_splitting(text)
+        #docDictionary = {}
+        #docDictionary["metadata"] = { 'source': pdf_path }
+        #docDictionary["page_content"] = text
+        #embedding = generate_embedding_splitting(
+        #    docDictionary
+        #)
+
         # Guardar el embedding en ChromaDB
         collection.add(
-            documents=[text],
-            embeddings=[embedding],
+            documents=chunks,
+            embeddings=embedding,
             ids=[filename]
         )
 
@@ -154,9 +123,9 @@ def queryOllamaEmbedded():
     
     queries = [#"What amount of students have assisted to the exam ?", 
               #  "What amount of students have approved the exam?",
-                "What are the benefits of representing a general tree structure as a binary tree?",
-                "How can I represent a general tree as a binary tree, as Knuth indicates?",
-                "What are the basic differences between trees and binary trees? ",
+              #  "What are the benefits of representing a general tree structure as a binary tree?",
+              #  "How can I represent a general tree as a binary tree, as Knuth indicates?",
+              #  "What are the basic differences between trees and binary trees? ",
                 "What is the natural correspondance between forests and binary trees?"
                ]
  
