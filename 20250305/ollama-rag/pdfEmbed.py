@@ -12,10 +12,25 @@ from pdfFunctions import extract_text_from_pdf_tesseract, extract_text_from_pdf_
 from embedFunctions import generate_embedding, generate_embedding_ollama, generate_embedding_splitting
 #from embedFiles import embedDoc
 
+
+def add_text_to_collection(text, pdf_path, collection):
+    chunks, embedding = generate_embedding_splitting(text)
+    ids = []
+    for i in range(len(chunks)):
+        ids.append(f"{pdf_path}_{i}")
+    # Guardar el embedding en ChromaDB
+    collection.add(
+        documents=chunks,
+        embeddings=embedding,
+        ids=ids
+    )
 # Configuración de ChromaDB
 chroma_client = chromadb.PersistentClient(path=".chroma")
 collection = chroma_client.get_or_create_collection(name="pdf_collection2")
 
+print(collection)
+
+#exit()
 
 ollama_client = ollama.Client
 
@@ -40,24 +55,8 @@ for filename in os.listdir(pdf_directory):
         pdf_path = os.path.join(pdf_directory, filename)
         text = extract_text_from_pdf_tesseract(pdf_path)
         ## Tesseract tiene buena transformación de archivos pdf de imagen
+        add_text_to_collection(text, pdf_path, collection)
 
-        text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=30, separator="\n")
-        #docs = text_splitter.split_documents(documents=[text])
-        docs = text_splitter.split_text(text=text)
-        for doc in docs:
-            #embedding = generate_embedding_ollama(doc)
-            docDictionary = {}
-            docDictionary["metadata"] = { 'source': pdf_path }
-            docDictionary["page_content"] = doc
-            embedding = generate_embedding_splitting(
-                docDictionary
-            )        
-            # Guardar el embedding en ChromaDB
-            collection.add(
-                documents=[doc],
-                embeddings=[embedding],
-                ids=[filename]
-            )
 
 print("Proceso completado. Los embeddings han sido guardados en ChromaDB.")
 
@@ -67,23 +66,10 @@ for filename in os.listdir(pdf_text_directory):
         pdf_path = os.path.join(pdf_text_directory, filename)
         text = extract_text_from_pdf_pypdf(pdf_path)
         #embedding = generate_embedding_ollama(text)
-        
-        chunks, embedding = generate_embedding_splitting(text)
-        #docDictionary = {}
-        #docDictionary["metadata"] = { 'source': pdf_path }
-        #docDictionary["page_content"] = text
-        #embedding = generate_embedding_splitting(
-        #    docDictionary
-        #)
-
-        # Guardar el embedding en ChromaDB
-        collection.add(
-            documents=chunks,
-            embeddings=embedding,
-            ids=[filename]
-        )
+        add_text_to_collection(text, pdf_path, collection)
 
 print("Proceso completado. Los embeddings han sido guardados en ChromaDB.")
+
 
 
 
@@ -110,8 +96,10 @@ def  query_chromadb ( query_text, n_results= 1 ):
     Devuelve: 
         lista de dict: Los documentos coincidentes principales y sus metadatos. 
     """
+    query_embedding = generate_embedding_splitting(query_text)
+
     results = collection.query( 
-        query_texts=[query_text], 
+        query_embeddings=query_embedding[1], 
         n_results=n_results 
     ) 
     return results[ "documents" ], results[ "metadatas" ] 
@@ -122,11 +110,11 @@ def  query_chromadb ( query_text, n_results= 1 ):
 def queryOllamaEmbedded():
     
     queries = [#"What amount of students have assisted to the exam ?", 
-              #  "What amount of students have approved the exam?",
+                "What amount of students have approved the exam?",
               #  "What are the benefits of representing a general tree structure as a binary tree?",
               #  "How can I represent a general tree as a binary tree, as Knuth indicates?",
-              #  "What are the basic differences between trees and binary trees? ",
-                "What is the natural correspondance between forests and binary trees?"
+                "What are the basic differences between trees and binary trees? ",
+              #  "What is the natural correspondance between forests and binary trees?"
                ]
  
     for query_text in queries:

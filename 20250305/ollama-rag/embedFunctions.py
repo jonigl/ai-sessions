@@ -4,6 +4,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_ollama import OllamaEmbeddings
 from langchain_core.vectorstores import InMemoryVectorStore
 
+TARGET_DIM=768
 # Función para generar embeddings usando OpenLLaMA local
 def generate_embedding(text):
 
@@ -41,5 +42,19 @@ def generate_embedding_splitting(text):
     
     chunks = text_splitter.split_text(text)
     embeddings = OllamaEmbeddings(model=embedding_model)
-    
-    return chunks, embeddings.embed_documents(chunks)
+
+    return chunks, fix_embedding_dim(embeddings.embed_documents(chunks))
+
+
+# fixes embed dimensions
+def fix_embedding_dim(embedding, target_dim=TARGET_DIM):
+    i=0
+    print(f"Target dim = {TARGET_DIM}")
+    for emb in embedding:
+        if len(emb) > target_dim:
+            return emb[:target_dim]
+        elif len(emb) < target_dim:
+            return emb + [0.0] * (target_dim - len(emb))
+        embedding[i] = emb
+        i+=i
+    return embedding
